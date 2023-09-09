@@ -9,7 +9,7 @@ NeoModeling is a Blender addon containing useful tools for modeling BallisticNG 
 Releases are kept up to date if Blender makes breaking changes. If there isn't a release specifically for a newer version of Blender, it's very likely because the addon works in the latest version.
 
 ## Developing
-# NeoModeling is written in Pycharm Community Edition and contains a build script / run configuration for automatic addon installation, allowing the project to sit separately to a live Blender installation.
+NeoModeling is written in Pycharm Community Edition and contains a build script / run configuration for automatic addon installation, allowing the project to sit separately to a live Blender installation.
 
 ### Blender Autocomplete
 Download the latest version of [Fake BPY Module](https://github.com/nutti/fake-bpy-module). 

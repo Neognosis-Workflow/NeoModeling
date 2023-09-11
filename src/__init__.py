@@ -36,7 +36,6 @@ def unregister():
         bpy.utils.unregister_class(c)
 
     for m in modules:
-        reload(m)
         m.unregister()
 
 

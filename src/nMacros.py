@@ -2,6 +2,15 @@ import bpy
 import math
 import bmesh
 
+blender_ver = bpy.app.version
+
+# auto normals were replaced with a modifier / geometry node in blender 4.1
+auto_normals_supported = blender_ver[0] < 4 or (blender_ver[0] == 4 and blender_ver[1] <= 1)
+
+# api for mesh data changed in blender 4
+vertex_mask_uses_attributes = blender_ver[0] > 3
+
+
 class UtilOpMeshOperator(bpy.types.Operator):
     def invoke(self, context, event):
 
@@ -90,26 +99,28 @@ class RipEdgesToCurve(bpy.types.Operator):
 
         return {"FINISHED"}
 
-class SetupAutoNormals(bpy.types.Operator):
-    bl_idname = "neo.model_setupautonormals"
-    bl_label = "Setup Normal Auto Smooth"
-    bl_description = "Marks the selected objects as smooth shaded and then configures auto normals with a 180 degree angle"
-    bl_options = {"REGISTER", "UNDO"}
 
-    def execute(self, context):
-        bpy.ops.object.shade_smooth()
+if auto_normals_supported:
+    class SetupAutoNormals(bpy.types.Operator):
+        bl_idname = "neo.model_setupautonormals"
+        bl_label = "Setup Normal Auto Smooth"
+        bl_description = "Marks the selected objects as smooth shaded and then configures auto normals with a 180 degree angle"
+        bl_options = {"REGISTER", "UNDO"}
 
-        sel = bpy.context.selected_objects
+        def execute(self, context):
+            bpy.ops.object.shade_smooth()
 
-        for s in sel:
-            if s.type != "MESH":
-                continue
+            sel = bpy.context.selected_objects
 
-        mesh: bpy.types.Mesh = s.data
-        mesh.auto_smooth_angle = 180
-        mesh.use_auto_smooth = True
+            for s in sel:
+                if s.type != "MESH":
+                    continue
 
-        return {"FINISHED"}
+            mesh: bpy.types.Mesh = s.data
+            mesh.auto_smooth_angle = 180
+            mesh.use_auto_smooth = True
+
+            return {"FINISHED"}
 
 
 class SetupCurveArray(bpy.types.Operator):
@@ -180,7 +191,13 @@ class NeoVertSelectionToSculptMask(UtilOpMeshOperator):
             return
 
         vert_mask = [v.select for v in bm.verts]
-        layer_mask = bm.verts.layers.paint_mask.new() if not bm.verts.layers.paint_mask else bm.verts.layers.paint_mask[0]
+
+        if vertex_mask_uses_attributes:
+            sculpt_mask = ".sculpt_mask"
+            if bm.verts.layers.float.get(sculpt_mask) is None:
+                layer_mask = bm.verts.layers.float.new(sculpt_mask)
+        else:
+            layer_mask = bm.verts.layers.paint_mask.new() if not bm.verts.layers.paint_mask else bm.verts.layers.paint_mask[0]
 
         for vert, mask in zip(bm.verts, vert_mask):
             vert[layer_mask] = mask
@@ -196,10 +213,11 @@ class NEO_MT_setup_menu(bpy.types.Menu):
             text=SetupCurveArray.bl_label,
         )
 
-        self.layout.operator(
-            SetupAutoNormals.bl_idname,
-            text=SetupAutoNormals.bl_label,
-        )
+        if auto_normals_supported:
+            self.layout.operator(
+                SetupAutoNormals.bl_idname,
+                text=SetupAutoNormals.bl_label,
+            )
 
 class NEO_MT_edge_menu(bpy.types.Menu):
     bl_idname = "NEO_MT_edge_menu"
@@ -221,17 +239,20 @@ class NEO_MT_vertex_menu(bpy.types.Menu):
             text=NeoVertSelectionToSculptMask.bl_label,
         )
 
-classes = (
+
+classes = [
     NEO_MT_setup_menu,
     SetupCurveArray,
-    SetupAutoNormals,
 
     NEO_MT_edge_menu,
     RipEdgesToCurve,
 
     NEO_MT_vertex_menu,
     NeoVertSelectionToSculptMask,
-)
+]
+
+if auto_normals_supported:
+    classes.append(SetupAutoNormals)
 
 
 def setup_menu(self, context):
